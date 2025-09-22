@@ -28,3 +28,6 @@ This is the official codebase of MonoCoP. We will release our source code upon a
 </table>
 
 
+<div>
+  <img src="output/results.png"/>
+</div>
