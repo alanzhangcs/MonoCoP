@@ -3,7 +3,7 @@
 
 # [Unleashing the Power of Chain-of-Prediction for Monocular 3D Object Detection](https://arxiv.org/abs/2505.04594)
 <div align="left">
-We provide the test results under official KITTI leaderboard:
+This is the official codebase of MonoCoP. We will release our source code upon acceptance. Meanwhile, we provide the test results on the official KITTI leaderboard:
 
 <table>
     <tr>
