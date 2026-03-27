@@ -9,7 +9,7 @@
 <a href="https://huggingface.co/zhihao406/MonoCoP"><img src='https://img.shields.io/badge/HuggingFace-Model-orange?logo=huggingface'></a>
 
 
-**[Michigan State University](https://cvlab.cse.msu.edu/), **
+**[Michigan State University](https://cvlab.cse.msu.edu/); [University of North Carolina at Chapel Hill](https://cvlab.cse.msu.edu/)**
 
 
 [Zhihao Zhang](https://alanzhangcs.github.io/), [Abhinav Kumar](https://sites.google.com/view/abhinavkumar), [Girish Chandar Ganesan](https://girish1511.github.io/), [Xiaoming Liu](https://www.cse.msu.edu/~liuxm/index2.html)
@@ -18,6 +18,10 @@
 
 [CVPR 2026](https://cvpr.thecvf.com/Conferences/2026/)
 </div>
+
+<p align="center">
+  <img src="assets/teaser.png" alt="Overview of MonoCoP and its chain-of-prediction pipeline for monocular 3D object detection." width="100%">
+</p>
 
 ## Table of Contents
 - [Abstract](#abstract)
@@ -28,9 +32,7 @@
 - [Model Performance](#model-performance)
 - [Acknowledgements](#acknowledgements)
 
-<p align="center">
-  <img src="assets/teaser.png" alt="Overview of MonoCoP and its chain-of-prediction pipeline for monocular 3D object detection." width="100%">
-</p>
+
 
 ## Abstract
 
