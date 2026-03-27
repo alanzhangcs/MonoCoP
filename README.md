@@ -147,7 +147,7 @@ We also provide KITTI test-set submissions on the KITTI leaderboard:
 
 
 <p align="center">
-  <img src="assets/results.png" alt="KITTI leaderboard screenshot for MonoCoP." width="85%">
+  <img src="assets/leaderboard.png" alt="KITTI leaderboard screenshot for MonoCoP." width="85%">
 </p>
 
 
