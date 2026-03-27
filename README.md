@@ -129,9 +129,9 @@ By default, logs and checkpoints will be saved under `outputs/.../` (see `traine
 
 We provide pretrained checkpoints and their corresponding training logs for download (see links in the table below).
 
-| Setting | Config | Dataset split |  Checkpoint | Training log |
-|---|---|---|---|---|
-| KITTI (Car/Ped/Cyc) | `config/monocop.yaml` | `train` / `val` |  [Model](https://huggingface.co/zhihao406/MonoCoP) | [Log](assets/train1.log) |
+| Setting | Config | Dataset split | Checkpoint | Training log |
+|:---:|:---:|:---:|:---:|:---:|
+| KITTI (Car/Ped/Cyc) | `config/monocop.yaml` | `train` / `val` | [Model](https://huggingface.co/zhihao406/MonoCoP) | [Log](assets/train1.log) |
 | KITTI (Car) | `config/monocop_car.yaml` | `train` / `val` | [Model](https://huggingface.co/zhihao406/MonoCoP) | [Log](assets/train.log) |
 
 ### KITTI leaderboard
@@ -139,7 +139,7 @@ We provide pretrained checkpoints and their corresponding training logs for down
 We also provide KITTI test-set submissions on the KITTI leaderboard:
 
 | Setting | KITTI leaderboard | AP3D (Mod.) | Checkpoint |
-|---|---|---|---|
+|:---:|:---:|:---:|:---:|
 | KITTI  | [Link](https://www.cvlibs.net/datasets/kitti/eval_object.php?obj_benchmark=3d) | 19.11 | [Model](https://huggingface.co/zhihao406/MonoCoP) | 
 
 
