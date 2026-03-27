@@ -18,11 +18,21 @@
 
 
 [CVPR 2026](https://cvpr.thecvf.com/Conferences/2026/)
+
 </div>
 
 <p align="center">
   <img src="assets/teaser.png" alt="Overview of MonoCoP and its chain-of-prediction pipeline for monocular 3D object detection." width="100%">
 </p>
+
+```bibtex
+@inproceedings{zhang2025unleashing,
+  title={Unleashing the Power of Chain-of-Prediction for Monocular 3D Object Detection},
+  author={Zhang, Zhihao and Kumar, Abhinav and Ganesan, Girish Chandar and Liu, Xiaoming},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  year={2026}
+}
+```
 
 ## Table of Contents
 - [Abstract](#abstract)
@@ -40,14 +50,7 @@
 
 Monocular 3D detection (Mono3D) aims to infer 3D bounding boxes from a single RGB image. Without auxiliary sensors such as LiDAR, this task is inherently ill-posed since the 3D-to-2D projection introduces depth ambiguity. Previous works often predict 3D attributes (e.g., depth, size, and orientation) in parallel, overlooking that these attributes are inherently correlated through the 3D-to-2D projection. However, simply enforcing such correlations through sequential prediction can propagate errors across attributes, especially when objects are occluded or truncated, where inaccurate size or orientation predictions can further amplify depth errors. Therefore, neither parallel nor sequential prediction is optimal. In this paper, we propose MonoCoP, an adaptive framework that learns when and how to leverage inter-attribute correlations with two complementary designs. A Chain-of-Prediction (CoP) explores inter-attribute correlations through feature-level learning, propagation, and aggregation, while an Uncertainty-Guided Selector (GS) dynamically switches between CoP and parallel paradigms for each object based on the predicted uncertainty. By combining their strengths, MonoCoP achieves state-of-the-art (SOTA) performance on KITTI, nuScenes, and Waymo, significantly improving depth accuracy, particularly for distant and challenging objects.
 
-```bibtex
-@inproceedings{zhang2025unleashing,
-  title={Unleashing the Power of Chain-of-Prediction for Monocular 3D Object Detection},
-  author={Zhang, Zhihao and Kumar, Abhinav and Ganesan, Girish Chandar and Liu, Xiaoming},
-  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
-  year={2026}
-}
-```
+
 
 
 
