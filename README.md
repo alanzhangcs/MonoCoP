@@ -7,6 +7,7 @@
 <a href="https://alanzhangcs.github.io/MonoCoP_page"><img src="https://img.shields.io/badge/arXiv-2503.11651-b31b1b" alt="arXiv"></a>
 <a href="https://alanzhangcs.github.io/monocop-page/"><img src="https://img.shields.io/badge/Project_Page-green" alt="Project Page"></a>
 <a href="https://huggingface.co/zhihao406/MonoCoP"><img src='https://img.shields.io/badge/HuggingFace-Model-orange?logo=huggingface'></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 
 
 **[Michigan State University](https://cvlab.cse.msu.edu/); [University of North Carolina at Chapel Hill](https://cvlab.cse.msu.edu/)**
@@ -31,6 +32,7 @@
 - [Training & Evaluation](#training--evaluation)
 - [Model Performance](#model-performance)
 - [Acknowledgements](#acknowledgements)
+- [License](#license)
 
 
 
