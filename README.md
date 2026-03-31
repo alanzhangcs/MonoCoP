@@ -40,7 +40,7 @@
 - [Checklist](#checklist)
 - [Installation](#installation)
 - [Training & Evaluation](#training--evaluation)
-- [Model Performance](#model-performance)
+- [Model Zoo](#model-zoo)
 - [Acknowledgements](#acknowledgements)
 - [License](#license)
 
