@@ -6,7 +6,7 @@
 </a>
 <a href="https://alanzhangcs.github.io/MonoCoP_page"><img src="https://img.shields.io/badge/arXiv-2503.11651-b31b1b" alt="arXiv"></a>
 <a href="https://alanzhangcs.github.io/monocop-page/"><img src="https://img.shields.io/badge/Project_Page-green" alt="Project Page"></a>
-<a href="https://huggingface.co/zhihao406/MonoCoP"><img src='https://img.shields.io/badge/HuggingFace-Model-orange?logo=huggingface'></a>
+<a href="https://huggingface.co/zhihao406/MonoCoP/tree/main"><img src='https://img.shields.io/badge/HuggingFace-Model-orange?logo=huggingface'></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 
 
@@ -118,24 +118,24 @@ Start training / evaluation:
 
 Train:
 ```bash
-bash train.sh 0 --config config/monocop_gs_5.yaml
+bash train.sh 0 --config config/monocop.yaml
 ```
 
 Evaluation only:
 ```bash
-bash test.sh 0 --config config/monocop_gs_5.yaml
+bash test.sh 0 --config config/monocop_test.yaml
 ```
 
 By default, logs and checkpoints will be saved under `outputs/.../` (see `trainer.save_path` in the config).
 
-## Model Performance
+## Model Zoo
 
 We provide pretrained checkpoints and their corresponding training logs for download (see links in the table below).
 
-| Setting | Config | Dataset split | Checkpoint | Training log |
+| Setting | Config | Dataset split | Checkpoint | Training log | 
 |:---:|:---:|:---:|:---:|:---:|
-| KITTI (Car/Ped/Cyc) | `config/monocop.yaml` | `train` / `val` | [Model](https://huggingface.co/zhihao406/MonoCoP) | [Log](assets/train1.log) |
-| KITTI (Car) | `config/monocop_car.yaml` | `train` / `val` | [Model](https://huggingface.co/zhihao406/MonoCoP) | [Log](assets/train.log) |
+| KITTI (Car/Ped/Cyc) | `config/monocop.yaml` | `train` / `val` | [Model](https://huggingface.co/zhihao406/MonoCoP/tree/main) | [Log](assets/train1.log) |
+| KITTI (Car) | `config/monocop_car.yaml` | `train` / `val` | [Model](https://huggingface.co/zhihao406/MonoCoP/tree/main) | [Log](assets/train.log) |
 
 ### KITTI leaderboard
 
@@ -143,7 +143,7 @@ We also provide KITTI test-set submissions on the KITTI leaderboard:
 
 | Setting | KITTI leaderboard | AP3D (Mod.) | Checkpoint |
 |:---:|:---:|:---:|:---:|
-| KITTI  | [Link](https://www.cvlibs.net/datasets/kitti/eval_object.php?obj_benchmark=3d) | 19.11 | [Model](https://huggingface.co/zhihao406/MonoCoP) | 
+| KITTI  | [Link](https://www.cvlibs.net/datasets/kitti/eval_object.php?obj_benchmark=3d) | 19.11 | [Model](https://huggingface.co/zhihao406/MonoCoP/tree/main) | 
 
 
 <p align="center">
