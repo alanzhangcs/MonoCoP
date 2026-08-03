@@ -115,7 +115,10 @@ class Tester(object):
             dets = dets.detach().cpu().numpy()
 
             # get corresponding calibs & transform tensor to numpy
-            calibs = [self.dataloader.dataset.get_calib(index) for index in info['img_id']]
+            # datasets that warp the input (e.g. letterboxed nuScenes) expose the
+            # calibration matching the frame the detections are decoded in
+            get_calib = getattr(self.dataloader.dataset, 'get_eval_calib', self.dataloader.dataset.get_calib)
+            calibs = [get_calib(index) for index in info['img_id']]
             info = {key: val.detach().cpu().numpy() for key, val in info.items()}
             cls_mean_size = self.dataloader.dataset.cls_mean_size
             dets = decode_detections(
@@ -142,13 +145,14 @@ class Tester(object):
         os.makedirs(output_dir, exist_ok=True)
 
         for img_id in results.keys():
-            if self.dataset_type == 'KITTI':
-                output_path = os.path.join(output_dir, '{:06d}.txt'.format(img_id))
-            else:
+            if hasattr(self.dataloader.dataset, 'get_sensor_modality'):
                 os.makedirs(os.path.join(output_dir, self.dataloader.dataset.get_sensor_modality(img_id)), exist_ok=True)
                 output_path = os.path.join(output_dir,
                                            self.dataloader.dataset.get_sensor_modality(img_id),
                                            self.dataloader.dataset.get_sample_token(img_id) + '.txt')
+            else:
+                # KITTI-format datasets (KITTI, nuScenes export): one txt per frame id
+                output_path = os.path.join(output_dir, '{:06d}.txt'.format(img_id))
 
             f = open(output_path, 'w')
             for i in range(len(results[img_id])):
