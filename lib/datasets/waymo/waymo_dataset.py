@@ -1,4 +1,6 @@
 import os
+import re
+import subprocess
 import numpy as np
 import torch.utils.data as data
 from PIL import Image, ImageFile
@@ -21,49 +23,39 @@ from lib.datasets.kitti.kitti_utils import Calibration
 from lib.datasets.kitti.kitti_utils import get_affine_transform
 from lib.datasets.kitti.kitti_utils import affine_transform
 from lib.datasets.kitti.kitti_eval_python.eval import get_official_eval_result
-from lib.datasets.nuscenes.nusc_eval import get_official_eval_result_nusc
 import lib.datasets.kitti.kitti_eval_python.kitti_common as kitti
 
 
-class NUSC_Dataset(data.Dataset):
-    """nuScenes (front camera) exported to the KITTI label format.
+class Waymo_Dataset(data.Dataset):
+    """Waymo Open (front camera) exported to the KITTI label format.
 
     Expected layout under `root_dir` (all of it may be symlinked):
-        ImageSets/{train,val}.txt
+        ImageSets/{train,val,val_small}.txt
         training/{image,calib,label}     <- train split
-        validation/{image,calib,label}   <- val split
+        validation/{image,calib,label}   <- any split whose name contains 'val'
 
-    `label/` holds the lower-case nuScenes class names, `label_2/` the
-    capitalised ones; pick one with the `label_dir` config key.
+    Class names are already KITTI-style (Car / Pedestrian / Cyclist, plus the
+    Waymo-only Sign), so the KITTI evaluator applies directly. Images are
+    1920 x 1280, i.e. exactly the aspect ratio of the default 768 x 512 input,
+    so the affine warp is a plain isotropic resize with no letterboxing needed.
 
-    Two evaluation taxonomies are supported through `eval_mode`:
-        'kitti'    -> pedestrian / car / cyclist, scored by the KITTI evaluator.
-                      This is the cross-dataset setting (train on KITTI, test
-                      here, or vice versa). Note that nuScenes has no `cyclist`
-                      class, so that row stays empty unless the labels were
-                      remapped beforehand.
-        'nuscenes' -> the 10 native nuScenes classes, scored by nusc_eval.
+    Two evaluation protocols are available through `eval_type`:
+        'kitti' -> the KITTI AP / AP_R40 evaluator already used for KITTI.
+        'waymo' -> the official Waymo metric (AP / APH at LEVEL_1 & LEVEL_2).
+                   That one needs tensorflow + waymo_open_dataset, which cannot
+                   share an environment with training, so it is run as a
+                   subprocess; point `waymo_eval_python` at that interpreter.
+                   It also needs `validation_org/` next to `validation/`.
     """
 
-    # h, w, l averaged over the nuScenes training split
-    NUSC_CLASSES = ['barrier', 'bicycle', 'bus', 'car', 'construction_vehicle',
-                    'motorcycle', 'pedestrian', 'traffic_cone', 'trailer', 'truck']
-    NUSC_MEAN_SIZE = np.array([[0.9856928278, 2.5350272733, 0.4964593291],
-                               [1.3212777838, 0.6161487411, 1.7345529633],
-                               [3.5310034111, 2.9322881261, 11.2886576022],
-                               [1.7303239450, 1.9504693996, 4.6300396845],
-                               [3.2509390814, 2.8786857152, 7.0579567879],
-                               [1.5086667691, 0.7789657637, 2.1047384053],
-                               [1.7830991759, 0.6741489141, 0.7322679154],
-                               [1.0864875408, 0.4343957855, 0.4397158911],
-                               [3.8569623772, 2.8859517869, 12.2184129639],
-                               [2.9017936138, 2.5306154230, 7.0539758051]])
-
-    KITTI_CLASSES = ['pedestrian', 'car', 'cyclist']
-    # pedestrian / car / bicycle rows of NUSC_MEAN_SIZE
-    KITTI_MEAN_SIZE = NUSC_MEAN_SIZE[[6, 3, 1]]
+    CLASSES = ['Pedestrian', 'Car', 'Cyclist', 'Sign']
+    # h, w, l averaged over the Waymo training split
+    MEAN_SIZE = np.array([[1.7431, 0.8494, 0.9110],
+                          [1.8032, 2.1036, 4.8104],
+                          [1.7336, 0.8230, 1.7530],
+                          [0.6523, 0.6208, 0.1254]])
     # index of each class in the KITTI evaluator's own class list
-    KITTI_EVAL_ID = {'car': 0, 'pedestrian': 1, 'cyclist': 2}
+    KITTI_EVAL_ID = {'Car': 0, 'Pedestrian': 1, 'Cyclist': 2}
 
     def __init__(self, split, cfg):
 
@@ -72,27 +64,26 @@ class NUSC_Dataset(data.Dataset):
         self.split = split
         self.max_objs = 50
 
-        self.eval_mode = cfg.get('eval_mode', 'kitti')
-        assert self.eval_mode in ['kitti', 'nuscenes']
-        if self.eval_mode == 'nuscenes':
-            self.class_name = list(self.NUSC_CLASSES)
-            self.cls_mean_size = self.NUSC_MEAN_SIZE.copy()
-        else:
-            self.class_name = list(self.KITTI_CLASSES)
-            self.cls_mean_size = self.KITTI_MEAN_SIZE.copy()
-        self.num_classes = len(self.class_name)
+        self.class_name = list(self.CLASSES)
         self.cls2id = {name: i for i, name in enumerate(self.class_name)}
+        self.num_classes = len(self.class_name)
+        self.cls_mean_size = self.MEAN_SIZE.copy()
 
-        # nuScenes front images are 1600 x 900, so a wider crop than KITTI's
-        self.resolution = np.array(cfg.get('resolution', [896, 512]))  # W * H
+        # Waymo front images are 1920 x 1280
+        self.resolution = np.array(cfg.get('resolution', [768, 512]))  # W * H
         self.use_3d_center = cfg.get('use_3d_center', True)
-        self.writelist = [name.lower() for name in cfg.get('writelist', ['car'])]
+        self.writelist = cfg.get('writelist', ['Car'])
         unknown = [name for name in self.writelist if name not in self.cls2id]
         assert not unknown, \
-            "writelist entries %s are not in the '%s' taxonomy %s" % (unknown, self.eval_mode, self.class_name)
+            "writelist entries %s are not in the Waymo taxonomy %s" % (unknown, self.class_name)
         self.meanshape = cfg.get('meanshape', False)
         if not self.meanshape:
             self.cls_mean_size = np.zeros_like(self.cls_mean_size, dtype=np.float32)
+
+        # evaluation protocol
+        self.eval_type = cfg.get('eval_type', 'kitti')
+        assert self.eval_type in ['kitti', 'waymo']
+        self.waymo_eval_python = cfg.get('waymo_eval_python', None)
 
         # data split loading
         self.split_file = os.path.join(self.root_dir, 'ImageSets', self.split + '.txt')
@@ -102,7 +93,7 @@ class NUSC_Dataset(data.Dataset):
         self.data_dir = os.path.join(self.root_dir, 'validation' if 'val' in split else 'training')
         self.image_dir = os.path.join(self.data_dir, 'image')
         self.calib_dir = os.path.join(self.data_dir, 'calib')
-        self.label_dir = os.path.join(self.data_dir, cfg.get('label_dir', 'label'))
+        self.label_dir = os.path.join(self.data_dir, 'label')
 
         # data augmentation configuration
         self.data_augmentation = True if 'train' in split else False
@@ -120,11 +111,6 @@ class NUSC_Dataset(data.Dataset):
 
         self.depth_scale = cfg.get('depth_scale', 'normal')
 
-        # letterbox the image instead of squeezing it into self.resolution, and
-        # optionally rescale it so that every sample shares one focal length
-        self.maintain_image_ratio = cfg.get('maintain_image_ratio', False)
-        self.target_focal = cfg.get('target_focal', None)
-
         # statistics
         self.mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
         self.std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
@@ -138,11 +124,7 @@ class NUSC_Dataset(data.Dataset):
     def get_image(self, idx):
         img_file = os.path.join(self.image_dir, '%06d.png' % idx)
         assert os.path.exists(img_file)
-        return Image.open(img_file)    # (H, W, 3) RGB mode
-
-    def get_image_size(self, idx):
-        # PIL only reads the header until the pixels are touched
-        return np.array(self.get_image(idx).size)
+        return Image.open(img_file).convert('RGB')    # (H, W, 3) RGB mode
 
     def get_label(self, idx):
         label_file = os.path.join(self.label_dir, '%06d.txt' % idx)
@@ -154,61 +136,46 @@ class NUSC_Dataset(data.Dataset):
         assert os.path.exists(calib_file)
         return Calibration(calib_file)
 
-    def calculate_new_image_size(self, img_size, resolution):
-        """Largest size that fits in `resolution` while keeping the aspect ratio."""
-        if resolution[0] / img_size[0] < resolution[1] / img_size[1]:
-            ratio = resolution[0] / img_size[0]
-        else:
-            ratio = resolution[1] / img_size[1]
-        return np.array([int(ratio * img_size[0]), int(ratio * img_size[1])]), ratio
-
-    def get_image_with_padding(self, img, target_size, pad_color=(0, 0, 0)):
-        new_img = Image.new(img.mode, tuple(int(v) for v in target_size), pad_color)
-        new_img.paste(img, (0, 0))
-        return new_img
-
-    def build_transform(self, img_size, center, crop_size, calib):
-        """Affine that maps the source image onto the network input.
-
-        Returns (trans, trans_inv, out_size, scale_ratio); `out_size` is the size
-        the image is warped to before padding, `scale_ratio` is None unless
-        maintain_image_ratio is on.
-        """
-        if not self.maintain_image_ratio:
-            trans, trans_inv = get_affine_transform(center, crop_size, 0, self.resolution, inv=1)
-            return trans, trans_inv, self.resolution, None
-
-        out_size, scale_ratio = self.calculate_new_image_size(img_size, self.resolution)
-        if self.target_focal is not None:
-            # zoom so that the effective focal length becomes self.target_focal
-            if self.resolution[1] / img_size[1] > self.resolution[0] / img_size[0]:
-                focal_crop = calib.P2[0, 0] * self.resolution[0] / self.target_focal / img_size[0]
-            else:
-                focal_crop = calib.P2[0, 0] * self.resolution[1] / self.target_focal / img_size[1]
-            crop_size = (crop_size / img_size - 1 + focal_crop) * img_size
-        trans, trans_inv = get_affine_transform(center, crop_size, 0, out_size, inv=1)
-        return trans, trans_inv, out_size, scale_ratio
-
-    def get_eval_calib(self, idx):
-        """Calibration matching the coordinate frame the detections live in.
-
-        Without maintain_image_ratio the decoder works in original image
-        coordinates (as for KITTI), so the raw calibration applies. Otherwise
-        the image was warped by `trans`, and P2 has to be warped along with it:
-        a point projects to trans @ P2 @ X.
-        """
-        calib = self.get_calib(idx)
-        if not self.maintain_image_ratio:
-            return calib
-        img_size = self.get_image_size(idx)
-        trans, _, _, _ = self.build_transform(img_size, np.array(img_size) / 2, img_size, calib)
-        P2 = np.vstack([trans, [0, 0, 1]]).astype(np.float32) @ calib.P2
-        return Calibration({'P2': P2, 'R0': calib.R0, 'Tr_velo2cam': calib.V2C})
-
     def eval(self, results_dir, logger):
+        if self.eval_type == 'waymo':
+            return self.eval_waymo_official(results_dir, logger)
+        return self.eval_kitti_protocol(results_dir, logger)
+
+    def eval_waymo_official(self, results_dir, logger):
+        """Run the official Waymo metric; returns VEHICLE LEVEL_2 3D AP (in %)."""
+        assert self.waymo_eval_python, (
+            "eval_type 'waymo' needs `waymo_eval_python` in the dataset config: the "
+            "interpreter of an env with tensorflow + waymo_open_dataset installed")
+        script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'waymo_eval.py')
+        cmd = [self.waymo_eval_python, '-u', script,
+               '--root_dir', os.path.abspath(self.root_dir),
+               '--predictions', os.path.abspath(results_dir),
+               '--pd_set', os.path.abspath(self.split_file)]
+
+        logger.info('==> Evaluating (Waymo official metric) ...')
+        logger.info('    ' + ' '.join(cmd))
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                              universal_newlines=True)
+        if proc.returncode != 0:
+            logger.info(proc.stdout)
+            raise RuntimeError('waymo_eval.py failed with code %d' % proc.returncode)
+
+        # keep the report table, drop TF's start-up chatter
+        table = [ln for ln in proc.stdout.splitlines()
+                 if ln.startswith(('-----', 'Class')) or re.match(r'^(VEHICLE|CYCLIST|PEDESTRIAN|SIGN)\s+\|', ln)]
+        logger.info('\n'.join(table))
+
+        for line in table:
+            parts = line.split('|')
+            if parts[0].strip() == 'VEHICLE' and parts[1].strip() == '2':
+                return float(parts[2].split()[0])
+        logger.info('==> Could not find VEHICLE LEVEL_2 AP in the report')
+        return 0
+
+    def eval_kitti_protocol(self, results_dir, logger):
         logger.info("==> Loading detections and GTs...")
-        # get_label_annos() enumerates the detection folder in sorted id order,
-        # so the GTs have to be sorted to match even if the split file is not.
+        # get_label_annos() enumerates the detection folder in sorted id order, so the
+        # GTs have to be sorted too -- some Waymo splits (val_small) are shuffled.
         img_ids = sorted(int(id) for id in self.idx_list)
         dt_annos = kitti.get_label_annos(results_dir)
         gt_annos = kitti.get_label_annos(self.label_dir, img_ids)
@@ -218,13 +185,12 @@ class NUSC_Dataset(data.Dataset):
         logger.info('==> Evaluating (official) ...')
         car_moderate = 0
         for category in self.writelist:
-            if self.eval_mode == 'nuscenes':
-                results_str, results_dict, mAP3d_R40 = get_official_eval_result_nusc(
-                    gt_annos, dt_annos, self.cls2id[category])
-            else:
-                results_str, results_dict, mAP3d_R40 = get_official_eval_result(
-                    gt_annos, dt_annos, self.KITTI_EVAL_ID[category])
-            if category == 'car':
+            if category not in self.KITTI_EVAL_ID:
+                logger.info('==> Skipping %s: no counterpart in the KITTI protocol' % category)
+                continue
+            results_str, results_dict, mAP3d_R40 = get_official_eval_result(
+                gt_annos, dt_annos, self.KITTI_EVAL_ID[category])
+            if category == 'Car':
                 car_moderate = mAP3d_R40
             logger.info(results_str)
         return car_moderate
@@ -295,20 +261,11 @@ class NUSC_Dataset(data.Dataset):
                             break
 
         # add affine transformation for 2d images.
-        trans, trans_inv, out_size, scale_ratio = self.build_transform(img_size, center, crop_size, calib)
-        img = img.transform(tuple(int(v) for v in out_size),
+        trans, trans_inv = get_affine_transform(center, crop_size, 0, self.resolution, inv=1)
+        img = img.transform(tuple(self.resolution.tolist()),
                             method=Image.AFFINE,
                             data=tuple(trans_inv.reshape(-1).tolist()),
                             resample=Image.BILINEAR)
-        if self.maintain_image_ratio:
-            img = self.get_image_with_padding(img, self.resolution)
-
-        # `calib` keeps projecting into the *original* image below, but the boxes
-        # are normalised by self.resolution, so the calibration handed to the
-        # network has to follow the resize for depth_geo to stay consistent.
-        p2_out = calib.P2.copy()
-        if self.maintain_image_ratio:
-            p2_out[0, 0] = self.target_focal if self.target_focal is not None else p2_out[0, 0] * scale_ratio
 
         # image encoding
         img = np.array(img).astype(np.float32) / 255.0
@@ -459,7 +416,7 @@ class NUSC_Dataset(data.Dataset):
             if objects[i].trucation <= 0.5 and objects[i].occlusion <= 2:
                 mask_2d[i] = 1
 
-            calibs[i] = p2_out
+            calibs[i] = calib.P2
 
         if random_mix_flag == True:
                 objects = self.get_label(random_index)
@@ -569,14 +526,10 @@ class NUSC_Dataset(data.Dataset):
                     if objects[i].trucation <=0.5 and objects[i].occlusion<=2:
                         mask_2d[i + object_num] = 1
 
-                    calibs[i + object_num] = p2_out
+                    calibs[i + object_num] = calib.P2
 
         # collect return data
         inputs = img
-
-        if self.maintain_image_ratio:
-            # the network input now *is* the padded canvas, not the source image
-            img_size = self.resolution
 
         targets = {
                    'calibs': calibs,
@@ -597,4 +550,4 @@ class NUSC_Dataset(data.Dataset):
         info = {'img_id': index,
                 'img_size': img_size,
                 'bbox_downsample_ratio': img_size / features_size}
-        return inputs, p2_out, targets, info
+        return inputs, calib.P2, targets, info

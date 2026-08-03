@@ -3,6 +3,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 from lib.datasets.kitti.kitti_dataset import KITTI_Dataset
 from lib.datasets.nuscenes.nusc_dataset import NUSC_Dataset
+from lib.datasets.waymo.waymo_dataset import Waymo_Dataset
 
 
 # init datasets and dataloaders
@@ -18,6 +19,9 @@ def build_dataloader(cfg, workers=4):
     elif cfg['type'] == 'NUSC':
         train_set = NUSC_Dataset(split=cfg['train_split'], cfg=cfg)
         test_set = NUSC_Dataset(split=cfg['test_split'], cfg=cfg)
+    elif cfg['type'] == 'WAYMO':
+        train_set = Waymo_Dataset(split=cfg['train_split'], cfg=cfg)
+        test_set = Waymo_Dataset(split=cfg['test_split'], cfg=cfg)
     else:
         raise NotImplementedError("%s dataset is not supported" % cfg['type'])
 
